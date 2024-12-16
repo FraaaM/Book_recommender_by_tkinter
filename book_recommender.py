@@ -239,7 +239,6 @@ class BookRecommenderApp:
         
         return score
 
-
     def get_recommendations(self):
         # Получаем выбранные параметры фильтрации
         selected_genres = [
@@ -271,46 +270,6 @@ class BookRecommenderApp:
         # Добавляем отсортированные книги в таблицу
         for book in filtered_books:
             self.tree.insert("", "end", values=(book["title"], ", ".join(book["author"]), book["genre"], book["first_publish_year"], book["matching_score"]))
-
-
-
-    # def get_recommendations(self):
-    #     # Получаем выбранные параметры фильтрации
-    #     selected_genres = [
-    #         genre for genre, var in self.genre_vars.items() if var.get() or (self.only_selected_genres_var.get() is False)
-    #     ]
-    #     selected_year_from = self.year_from_entry.get().strip()
-    #     selected_year_to = self.year_to_entry.get().strip()
-    #     keywords = self.keywords_entry.get().split(",")  # Ключевые слова разделены запятой
-
-    #     # Фильтруем книги по жанрам, авторам и годам
-    #     filtered_books = [book for book in self.books if
-    #                     (not selected_genres or book["genre"] in selected_genres)
-    #                     and (not selected_year_from or book["first_publish_year"] >= int(selected_year_from))
-    #                     and (not selected_year_to or book["first_publish_year"] <= int(selected_year_to))
-    #                     and (not self.selected_authors or any(author in self.selected_authors for author in book["author"]))
-    #     ]
-
-    #     # Рассчитываем рейтинг для каждой книги
-    #     books_with_relevance = []
-    #     for book in filtered_books:
-    #         relevance_score = self.calculate_relevance(book, selected_genres, self.selected_authors, keywords)
-    #         books_with_relevance.append((book, relevance_score))
-
-    #     # Сортируем книги по убыванию рейтинга
-    #     books_with_relevance.sort(key=lambda x: x[1], reverse=True)
-
-    #     # Очищаем старые рекомендации из таблицы
-    #     for row in self.tree.get_children():
-    #         self.tree.delete(row)
-
-    #     # Добавляем отсортированные книги в таблицу
-    #     for book, score in books_with_relevance:
-    #         self.tree.insert("", "end", values=(book["title"], ", ".join(book["author"]), book["genre"], book["first_publish_year"]))
-
-        
-
-
 
 if __name__ == "__main__":
     root = tk.Tk()
