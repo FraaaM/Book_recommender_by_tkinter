@@ -4,7 +4,7 @@ from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 import json
 
-class BookRecommender:
+class BookRecommenderApp:
     def __init__(self, root):
         self.root = root
         self.books = self.load_books()
@@ -28,8 +28,8 @@ class BookRecommender:
 
     def setup_ui(self):
         self.root.title("Рекомендательная система книг")
-        self.root.geometry("1200x650")
-        self.root.resizable(False, False)
+        self.root.geometry("1500x650")
+        self.root.resizable(True,True)
 
         main_frame = tk.Frame(self.root)
         main_frame.pack(padx=10, pady=5, fill="both", expand=True)
@@ -160,15 +160,17 @@ class BookRecommender:
         frame.grid(row=0, column=1, rowspan=4, sticky="nsew")
         frame.grid_columnconfigure(0, weight=1)
 
-        # Treeview to show recommendations
-        self.tree = ttk.Treeview(frame, columns=("Title", "Author", "Genre", "Year"), show="headings")
+        # Treeview для отображения рекомендаций
+        self.tree = ttk.Treeview(frame, columns=("Title", "Author", "Genre", "Year", "Matching Score"), show="headings")
         self.tree.heading("Title", text="Название")
         self.tree.heading("Author", text="Автор")
         self.tree.heading("Genre", text="Жанр")
         self.tree.heading("Year", text="Год")
+        self.tree.heading("Matching Score", text="Рейтинг соответствия")
         self.tree.pack(fill="both", expand=True)
 
         return frame
+
 
     def create_sort_frame(self, parent):
         frame = tk.LabelFrame(parent, text="Выбор сортировки", padx=10, pady=10)
@@ -217,6 +219,27 @@ class BookRecommender:
         if filename:
             wb.save(filename)
 
+    def calculate_matching_score(self, book, keywords):
+        score = 0
+        
+        # Проверка совпадения жанра
+        selected_genres = [genre for genre, var in self.genre_vars.items() if var.get() or (self.only_selected_genres_var.get() is False)]
+        if book["genre"] in selected_genres:
+            score += 1  # За каждый совпавший жанр добавляем балл
+        
+        # Проверка совпадения авторов
+        if any(author in self.selected_authors for author in book["author"]):
+            score += 1  # За каждого совпавшего автора добавляем балл
+        
+        # Проверка совпадения ключевых слов
+        book_description = book.get("description", "").lower()
+        for keyword in keywords.lower().split():
+            if keyword.lower() in book_description:
+                score += 0.5  # За каждое совпавшее ключевое слово добавляем 0.5 балла
+        
+        return score
+
+
     def get_recommendations(self):
         # Получаем выбранные параметры фильтрации
         selected_genres = [
@@ -224,6 +247,7 @@ class BookRecommender:
         ]
         selected_year_from = self.year_from_entry.get().strip()
         selected_year_to = self.year_to_entry.get().strip()
+        keywords = self.keywords_entry.get().strip()
 
         # Фильтруем книги по жанрам, авторам и годам
         filtered_books = [book for book in self.books if
@@ -233,15 +257,12 @@ class BookRecommender:
                         and (not self.selected_authors or any(author in self.selected_authors for author in book["author"]))
         ]
 
-        # Получаем выбранную сортировку
-        sort_by = self.sort_option.get()
-        sort_order = self.sort_order.get()
+        # Считывание и расчет рейтинга для каждой книги
+        for book in filtered_books:
+            book["matching_score"] = self.calculate_matching_score(book, keywords)
 
-        # Сортировка по выбранному критерию
-        if sort_by == "alphabet":
-            filtered_books.sort(key=lambda x: x["title"].lower(), reverse=(sort_order == "desc"))
-        elif sort_by == "year":
-            filtered_books.sort(key=lambda x: x["first_publish_year"], reverse=(sort_order == "desc"))
+        # Сортировка по рейтингу (и дополнительной сортировке по году или алфавиту)
+        filtered_books.sort(key=lambda x: (-x["matching_score"], x["first_publish_year"] if self.sort_option.get() == "year" else x["title"].lower()), reverse=(self.sort_order.get() == "desc"))
 
         # Очищаем старые рекомендации из таблицы
         for row in self.tree.get_children():
@@ -249,11 +270,49 @@ class BookRecommender:
 
         # Добавляем отсортированные книги в таблицу
         for book in filtered_books:
-            self.tree.insert("", "end", values=(book["title"], ", ".join(book["author"]), book["genre"], book["first_publish_year"]))
+            self.tree.insert("", "end", values=(book["title"], ", ".join(book["author"]), book["genre"], book["first_publish_year"], book["matching_score"]))
+
+
+
+    # def get_recommendations(self):
+    #     # Получаем выбранные параметры фильтрации
+    #     selected_genres = [
+    #         genre for genre, var in self.genre_vars.items() if var.get() or (self.only_selected_genres_var.get() is False)
+    #     ]
+    #     selected_year_from = self.year_from_entry.get().strip()
+    #     selected_year_to = self.year_to_entry.get().strip()
+    #     keywords = self.keywords_entry.get().split(",")  # Ключевые слова разделены запятой
+
+    #     # Фильтруем книги по жанрам, авторам и годам
+    #     filtered_books = [book for book in self.books if
+    #                     (not selected_genres or book["genre"] in selected_genres)
+    #                     and (not selected_year_from or book["first_publish_year"] >= int(selected_year_from))
+    #                     and (not selected_year_to or book["first_publish_year"] <= int(selected_year_to))
+    #                     and (not self.selected_authors or any(author in self.selected_authors for author in book["author"]))
+    #     ]
+
+    #     # Рассчитываем рейтинг для каждой книги
+    #     books_with_relevance = []
+    #     for book in filtered_books:
+    #         relevance_score = self.calculate_relevance(book, selected_genres, self.selected_authors, keywords)
+    #         books_with_relevance.append((book, relevance_score))
+
+    #     # Сортируем книги по убыванию рейтинга
+    #     books_with_relevance.sort(key=lambda x: x[1], reverse=True)
+
+    #     # Очищаем старые рекомендации из таблицы
+    #     for row in self.tree.get_children():
+    #         self.tree.delete(row)
+
+    #     # Добавляем отсортированные книги в таблицу
+    #     for book, score in books_with_relevance:
+    #         self.tree.insert("", "end", values=(book["title"], ", ".join(book["author"]), book["genre"], book["first_publish_year"]))
+
+        
 
 
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = BookRecommender(root)
+    app = BookRecommenderApp(root)
     root.mainloop()
